@@ -70,7 +70,9 @@ export default defineEventHandler(async (event) => {
   const headersRaw = textValue(form, 'message-headers')
   const headers = safeJson(headersRaw, [])
   const contentIdMap = safeJson(textValue(form, 'content-id-map'), {}) as Record<string, string>
-  const bodyHtml = form.getAll('body-html').filter(value => typeof value === 'string').join('\n')
+  const bodyHtml = form.getAll('body-html')
+    .filter((value: FormDataEntryValue): value is string => typeof value === 'string')
+    .join('\n')
   const attachmentCount = Math.max(0, Number.parseInt(textValue(form, 'attachment-count') || '0', 10) || 0)
   const attachmentStatements: D1PreparedStatement[] = []
   const storedKeys: string[] = []

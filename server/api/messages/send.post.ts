@@ -43,7 +43,7 @@ async function parseCompose(event: H3Event): Promise<ComposeInput> {
       subject: String(form.get('subject') || ''),
       text: String(form.get('text') || ''),
       html: String(form.get('html') || ''),
-      attachments: form.getAll('attachment').filter((entry): entry is File => entry instanceof File),
+      attachments: form.getAll('attachment').filter((entry: FormDataEntryValue): entry is File => entry instanceof File),
     }
   }
   const body = await readBody<Record<string, unknown>>(event)

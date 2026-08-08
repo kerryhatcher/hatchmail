@@ -10,7 +10,15 @@ function base64UrlToBytes(value: string): Uint8Array {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
   const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
   const binary = atob(padded)
-  return Uint8Array.from(binary, char => char.charCodeAt(0))
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
+  return bytes
+}
+
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return copy.buffer as ArrayBuffer
 }
 
 export function randomToken(bytes = 32): string {
@@ -29,7 +37,7 @@ export async function hashPassword(password: string, iterations: number): Promis
   crypto.getRandomValues(salt)
   const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits'])
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
+    { name: 'PBKDF2', hash: 'SHA-256', salt: bytesToArrayBuffer(salt), iterations },
     keyMaterial,
     256,
   )
@@ -39,7 +47,7 @@ export async function hashPassword(password: string, iterations: number): Promis
 export async function verifyPassword(password: string, expectedHash: string, salt: string, iterations: number): Promise<boolean> {
   const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits'])
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: base64UrlToBytes(salt), iterations },
+    { name: 'PBKDF2', hash: 'SHA-256', salt: bytesToArrayBuffer(base64UrlToBytes(salt)), iterations },
     keyMaterial,
     256,
   )
@@ -60,14 +68,18 @@ async function importSettingsKey(secret: string): Promise<CryptoKey> {
   if (raw.byteLength !== 32) {
     throw new Error('SETTINGS_ENCRYPTION_KEY must decode to exactly 32 bytes')
   }
-  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt'])
+  return crypto.subtle.importKey('raw', bytesToArrayBuffer(raw), 'AES-GCM', false, ['encrypt', 'decrypt'])
 }
 
 export async function encryptSetting(plaintext: string, secret: string): Promise<string> {
   const iv = new Uint8Array(12)
   crypto.getRandomValues(iv)
   const key = await importSettingsKey(secret)
-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoder.encode(plaintext))
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: bytesToArrayBuffer(iv) },
+    key,
+    encoder.encode(plaintext),
+  )
   return `${bytesToBase64Url(iv)}.${bytesToBase64Url(new Uint8Array(ciphertext))}`
 }
 
@@ -76,9 +88,9 @@ export async function decryptSetting(value: string, secret: string): Promise<str
   if (!ivPart || !ciphertextPart) throw new Error('Invalid encrypted setting')
   const key = await importSettingsKey(secret)
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: base64UrlToBytes(ivPart) },
+    { name: 'AES-GCM', iv: bytesToArrayBuffer(base64UrlToBytes(ivPart)) },
     key,
-    base64UrlToBytes(ciphertextPart),
+    bytesToArrayBuffer(base64UrlToBytes(ciphertextPart)),
   )
   return new TextDecoder().decode(plaintext)
 }
