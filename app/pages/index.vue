@@ -193,7 +193,7 @@ function formatBytes(value: number) {
       <section class="mail-workspace">
         <div class="message-column">
           <div class="list-toolbar">
-            <span class="toolbar-label">{{ folder[0].toUpperCase() + folder.slice(1) }}</span>
+            <span class="toolbar-label">{{ folder.charAt(0).toUpperCase() + folder.slice(1) }}</span>
             <div class="toolbar-spacer" />
             <span class="toolbar-label">Newest</span><ChevronDown :size="16" />
           </div>
